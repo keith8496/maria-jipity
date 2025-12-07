@@ -1,26 +1,20 @@
-const CACHE_NAME = "chatwrapper-v1";
-const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.webmanifest"];
+// service-worker.js
+// -------------------------------------------------------------
+// ALPHA MODE: CACHING DISABLED
+// TODO: Re-enable proper caching + versioning before production.
+// -------------------------------------------------------------
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+  // Immediately activate the updated SW
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.map((k) => (k === CACHE_NAME ? null : caches.delete(k)))
-      )
-    )
-  );
+  // Take control of all pages immediately
+  event.waitUntil(self.clients.claim());
 });
 
+// Network-only fetch handler — disables all caching
 self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  if (request.method !== "GET") return;
-  event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request))
-  );
+  event.respondWith(fetch(event.request));
 });
