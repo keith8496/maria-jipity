@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-root">
+    <header class="topbar">
+      <div class="topbar-title">Chat Assistant</div>
+      <div class="topbar-meta">
+        <span id="user-label"></span>
+        <button id="logout-btn" class="icon-btn hidden" title="Sign out">
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabbar">
+      <button id="tab-chat" class="tab active">Chat</button>
+      <button id="tab-usage" class="tab">Usage</button>
+      <button id="tab-admin" class="tab hidden">Admin</button>
+    </nav>
+
+    <main class="layout">
+      <!-- Chat panel -->
+      <section id="panel-chat" class="panel active">
+        <div id="chat-log" class="chat-log"></div>
+
+        <form id="chat-form" class="chat-input">
+          <textarea
+            id="chat-text"
+            rows="1"
+            placeholder="Message..."
+          ></textarea>
+          <button type="submit" id="send-btn" class="primary-btn">
+            Send
+          </button>
+        </form>
+      </section>
+
+      <!-- Usage panel -->
+      <section id="panel-usage" class="panel hidden">
+        <div class="panel-inner">
+          <h2>Usage (last 30 days)</h2>
+          <div id="usage-content" class="usage-content"></div>
+        </div>
+      </section>
+
+      <!-- Admin panel -->
+      <section id="panel-admin" class="panel hidden">
+        <div class="panel-inner">
+          <h2>Admin</h2>
+          <div class="admin-section">
+            <h3>Users</h3>
+            <div id="admin-users"></div>
+            <form id="admin-create-user-form" class="admin-form">
+              <div class="admin-form-row">
+                <label>
+                  Username
+                  <input id="admin-new-username" autocomplete="off" />
+                </label>
+                <label>
+                  Display name
+                  <input id="admin-new-displayname" autocomplete="off" />
+                </label>
+              </div>
+              <div class="admin-form-row">
+                <label>
+                  Password
+                  <input id="admin-new-password" type="password" />
+                </label>
+                <label class="admin-checkbox">
+                  <input id="admin-new-isadmin" type="checkbox" />
+                  Admin
+                </label>
+              </div>
+              <button type="submit" class="primary-btn">Create User</button>
+              <p id="admin-error" class="hint error hidden"></p>
+            </form>
+          </div>
+
+          <div class="admin-section">
+            <h3>Change my password</h3>
+            <form id="change-password-form" class="admin-form">
+              <div class="admin-form-row">
+                <label>
+                  Current password
+                  <input
+                    id="change-current-password"
+                    type="password"
+                    autocomplete="current-password"
+                  />
+                </label>
+                <label>
+                  New password
+                  <input
+                    id="change-new-password"
+                    type="password"
+                    autocomplete="new-password"
+                  />
+                </label>
+                <label>
+                  Confirm new password
+                  <input
+                    id="change-confirm-password"
+                    type="password"
+                    autocomplete="new-password"
+                  />
+                </label>
+              </div>
+              <button type="submit" class="primary-btn">Update Password</button>
+              <p id="change-password-message" class="hint hidden"></p>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+</div>
+
+  <div id="login-overlay" class="login-overlay hidden">
+    <div class="login-backdrop"></div>
+    <div class="login-modal">
+      <h1 class="login-title">Sign in</h1>
+      <form id="login-form" class="login-form">
+        <label>
+          Username
+          <input id="login-username" autocomplete="username" />
+        </label>
+        <label>
+          Password
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </label>
+        <button type="submit" class="primary-btn login-submit">Sign in</button>
+        <p id="login-error" class="hint error hidden"></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
