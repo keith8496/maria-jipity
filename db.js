@@ -1,6 +1,16 @@
 import Database from "better-sqlite3";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const db = new Database("chatwrapper.db");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dbPath = path.join(__dirname, "data", "chatwrapper.db");
+
+// Ensure the data directory exists before opening SQLite
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+const db = new Database(dbPath);
 
 // Init schema
 db.exec(`
