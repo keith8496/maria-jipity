@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-root">
+    <header class="topbar">
+      <div class="topbar-title">Chat Assistant</div>
+      <div class="topbar-meta">
+        <span id="user-label"></span>
+        <button id="usage-btn" class="icon-btn" title="Usage">
+          ⓘ
+        </button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="profile-card">
+          <label>
+            Name
+            <input id="display-name" placeholder="Your name" />
+          </label>
+          <label>
+            User ID
+            <input id="user-id" placeholder="wife" />
+          </label>
+          <button id="save-profile" class="primary-btn">Save Profile</button>
+          <p class="hint">
+            This stays in your browser only.<br />
+            The API key lives on the server.
+          </p>
+        </div>
+
+        <div class="usage-panel hidden" id="usage-panel">
+          <h3>Usage (last 30 days)</h3>
+          <div id="usage-content" class="usage-content"></div>
+        </div>
+      </aside>
+
+      <section class="chat-panel">
+        <div id="chat-log" class="chat-log"></div>
+
+        <form id="chat-form" class="chat-input">
+          <textarea
+            id="chat-text"
+            rows="1"
+            placeholder="Message..."
+          ></textarea>
+          <button type="submit" id="send-btn" class="primary-btn">
+            Send
+          </button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
