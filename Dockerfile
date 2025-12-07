@@ -2,12 +2,14 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# Install only production deps based on lockfile
 COPY package.json package-lock.json* ./
-RUN npm install --production
+RUN npm ci --omit=dev
 
+# Copy application code
 COPY . .
 
-# Expect OPENAI_API_KEY at runtime
-EXPOSE 3000
+ENV NODE_ENV=production
 
+EXPOSE 3000
 CMD ["npm", "start"]
