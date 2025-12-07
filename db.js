@@ -138,6 +138,28 @@ export function getUserById(id) {
   return stmt.get(id);
 }
 
+// Update a user's password hash
+export function updateUserPassword(userId, passwordHash) {
+  const stmt = db.prepare(`
+    UPDATE users
+    SET password_hash = ?
+    WHERE id = ?
+  `);
+  stmt.run(passwordHash, userId);
+}
+
+// Delete all sessions for a given user
+export function deleteSessionsForUser(userId) {
+  const stmt = db.prepare(`DELETE FROM sessions WHERE user_id = ?`);
+  stmt.run(userId);
+}
+
+// Delete a user by id
+export function deleteUser(userId) {
+  const stmt = db.prepare(`DELETE FROM users WHERE id = ?`);
+  stmt.run(userId);
+}
+
 // Create a new session token for a user
 export function createSession(sessionId, userId, expiresAt) {
   const stmt = db.prepare(`

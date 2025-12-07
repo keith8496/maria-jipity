@@ -83,6 +83,40 @@
               <p id="admin-error" class="hint error hidden"></p>
             </form>
           </div>
+
+          <div class="admin-section">
+            <h3>Change my password</h3>
+            <form id="change-password-form" class="admin-form">
+              <div class="admin-form-row">
+                <label>
+                  Current password
+                  <input
+                    id="change-current-password"
+                    type="password"
+                    autocomplete="current-password"
+                  />
+                </label>
+                <label>
+                  New password
+                  <input
+                    id="change-new-password"
+                    type="password"
+                    autocomplete="new-password"
+                  />
+                </label>
+                <label>
+                  Confirm new password
+                  <input
+                    id="change-confirm-password"
+                    type="password"
+                    autocomplete="new-password"
+                  />
+                </label>
+              </div>
+              <button type="submit" class="primary-btn">Update Password</button>
+              <p id="change-password-message" class="hint hidden"></p>
+            </form>
+          </div>
         </div>
       </section>
     </main>

@@ -17,10 +17,50 @@ import {
   createSession,
   deleteSession,
   getUserBySessionId,
-  listUsers
+  listUsers,
+  updateUserPassword,
+  deleteUser,
+  deleteSessionsForUser
 } from "./db.js";
 
+// --- Simple in-memory rate limiting (alpha) ---
+// NOTE: This is per-process only. For multi-instance deployments,
+// move this to Redis or another shared store.
+const LOGIN_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const LOGIN_MAX_PER_IP = 50;           // max login attempts per IP per window
+const LOGIN_MAX_PER_USER = 20;         // max login attempts per username per window
+
+const CHAT_WINDOW_MS = 60 * 1000;      // 60 seconds
+const CHAT_MAX_PER_USER = 60;          // max chat calls per user per window
+
+const loginAttemptsByIp = new Map();
+const loginAttemptsByUser = new Map();
+const chatAttemptsByUser = new Map();
+
+function getClientIp(req) {
+  // If behind a reverse proxy, X-Forwarded-For is preferred (once trust proxy is set).
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.length > 0) {
+    return xff.split(",")[0].trim();
+  }
+  return req.ip || "unknown";
+}
+
+function checkAndUpdateRateLimit(map, key, windowMs, maxCount) {
+  const now = Date.now();
+  let entry = map.get(key);
+  if (!entry || now - entry.windowStart > windowMs) {
+    entry = { windowStart: now, count: 0 };
+  }
+  entry.count += 1;
+  map.set(key, entry);
+  return entry.count > maxCount;
+}
+
 const app = express();
+
+app.set("trust proxy", 1);
+
 const port = process.env.PORT || 3000;
 
 if (!process.env.OPENAI_API_KEY) {
@@ -122,6 +162,30 @@ app.post("/api/auth/login", (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: "Missing username or password" });
   }
+
+  // Rate limiting: brute force protection
+  const ip = getClientIp(req);
+  const normalizedUsername = String(username).toLowerCase();
+
+  const ipLimited = checkAndUpdateRateLimit(
+    loginAttemptsByIp,
+    ip,
+    LOGIN_WINDOW_MS,
+    LOGIN_MAX_PER_IP
+  );
+  const userLimited = checkAndUpdateRateLimit(
+    loginAttemptsByUser,
+    normalizedUsername,
+    LOGIN_WINDOW_MS,
+    LOGIN_MAX_PER_USER
+  );
+
+  if (ipLimited || userLimited) {
+    return res
+      .status(429)
+      .json({ error: "Too many login attempts. Please try again later." });
+  }
+
   const user = getUserByUsername(username);
   if (!user || !user.password_hash) {
     return res.status(401).json({ error: "Invalid credentials" });
@@ -189,6 +253,58 @@ app.get("/api/auth/me", (req, res) => {
   });
 });
 
+// Auth: change password (current user)
+app.post("/api/auth/password", requireAuth, (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    return res
+      .status(400)
+      .json({ error: "Current password and new password are required." });
+  }
+  if (newPassword.length < 8) {
+    return res
+      .status(400)
+      .json({ error: "New password must be at least 8 characters long." });
+  }
+
+  try {
+    const user = getUserByUsername(req.user.username);
+    if (!user || !user.password_hash) {
+      return res.status(500).json({ error: "User not found." });
+    }
+
+    const ok = bcrypt.compareSync(currentPassword, user.password_hash);
+    if (!ok) {
+      return res.status(401).json({ error: "Current password is incorrect." });
+    }
+
+    const newHash = bcrypt.hashSync(newPassword, 10);
+    updateUserPassword(user.id, newHash);
+
+    // Invalidate existing sessions and create a fresh one
+    deleteSessionsForUser(user.id);
+    const sessionId = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(
+      Date.now() + 1000 * 60 * 60 * 24 * 30
+    ).toISOString();
+    createSession(sessionId, user.id, expiresAt);
+
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: useSecureCookies,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30
+    };
+
+    res.setHeader("Set-Cookie", cookie.serialize("sid", sessionId, cookieOptions));
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Change password error:", err);
+    return res.status(500).json({ error: "Failed to change password." });
+  }
+});
+
 // Admin: list users
 app.get("/api/admin/users", requireAdmin, (req, res) => {
   const users = listUsers();
@@ -226,6 +342,38 @@ app.post("/api/admin/users", requireAdmin, (req, res) => {
   }
 });
 
+// Admin: delete user
+app.delete("/api/admin/users/:id", requireAdmin, (req, res) => {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({ error: "Missing user id." });
+  }
+
+  // Prevent admin from deleting their own account
+  if (id === req.user.id) {
+    return res
+      .status(400)
+      .json({ error: "You cannot delete your own account." });
+  }
+
+  try {
+    // Optionally, verify user exists
+    const users = listUsers();
+    const target = users.find((u) => u.id === id);
+    if (!target) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    deleteSessionsForUser(id);
+    deleteUser(id);
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Error deleting user:", err);
+    return res.status(500).json({ error: "Failed to delete user." });
+  }
+});
+
 // Get recent chat history for UI bootstrap
 app.get("/api/history", requireAuth, (req, res) => {
   const userId = req.user.id;
@@ -249,6 +397,20 @@ app.post("/api/chat", requireAuth, async (req, res) => {
     }
 
     const userId = req.user.id;
+
+    // Per-user chat rate limiting to avoid abuse
+    const chatLimited = checkAndUpdateRateLimit(
+      chatAttemptsByUser,
+      userId,
+      CHAT_WINDOW_MS,
+      CHAT_MAX_PER_USER
+    );
+    if (chatLimited) {
+      return res
+        .status(429)
+        .json({ error: "Too many requests. Please slow down." });
+    }
+
     const displayName = req.user.displayName || req.user.username || "the user";
     ensureUser(userId, displayName);
 

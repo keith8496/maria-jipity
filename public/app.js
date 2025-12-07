@@ -35,6 +35,12 @@ const els = {
   adminNewIsAdmin: document.getElementById("admin-new-isadmin"),
   adminError: document.getElementById("admin-error"),
 
+  changePasswordForm: document.getElementById("change-password-form"),
+  changeCurrentPassword: document.getElementById("change-current-password"),
+  changeNewPassword: document.getElementById("change-new-password"),
+  changeConfirmPassword: document.getElementById("change-confirm-password"),
+  changePasswordMessage: document.getElementById("change-password-message"),
+
   // Login overlay
   loginOverlay: document.getElementById("login-overlay"),
   loginForm: document.getElementById("login-form"),
@@ -179,21 +185,42 @@ async function api(path, options = {}) {
     ...options
   });
 
+  const text = await res.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
+
   if (res.status === 401) {
     showLoginOverlay();
-    throw new Error("Not authenticated");
+    const msg = (data && data.error) || "Not authenticated";
+    const err = new Error(msg);
+    err.status = 401;
+    throw err;
   }
 
-  const text = await res.text();
-  if (!text) {
-    return null;
+  if (res.status === 429) {
+    const msg =
+      (data && data.error) || "Too many requests. Please slow down.";
+    const err = new Error(msg);
+    err.status = 429;
+    throw err;
   }
 
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
+  if (!res.ok) {
+    const msg =
+      (data && data.error) ||
+      `Request failed with status ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
   }
+
+  return data;
 }
 
 // --- Backend calls ---
@@ -292,10 +319,43 @@ async function fetchAdminUsers() {
     data.users.forEach((u) => {
       const row = document.createElement("div");
       row.className = "admin-user-row";
+
       const left = document.createElement("span");
       left.textContent = `${u.username} — ${u.displayName || u.id}`;
+
       const right = document.createElement("span");
-      right.textContent = u.isAdmin ? "admin" : "user";
+      right.className = "admin-user-actions";
+
+      const roleSpan = document.createElement("span");
+      roleSpan.textContent = u.isAdmin ? "admin" : "user";
+      right.appendChild(roleSpan);
+
+      if (currentUser && u.id !== currentUser.id) {
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "text-btn";
+        delBtn.textContent = "Delete";
+        delBtn.addEventListener("click", async () => {
+          const confirmed = window.confirm(
+            `Delete user "${u.username}"? This cannot be undone.`
+          );
+          if (!confirmed) return;
+
+          try {
+            await api(`/api/admin/users/${encodeURIComponent(u.id)}`, {
+              method: "DELETE"
+            });
+            await fetchAdminUsers();
+          } catch (err) {
+            console.error("delete user error:", err);
+            els.adminError.textContent =
+              (err && err.message) || "Failed to delete user.";
+            els.adminError.classList.remove("hidden");
+          }
+        });
+        right.appendChild(delBtn);
+      }
+
       row.appendChild(left);
       row.appendChild(right);
       els.adminUsers.appendChild(row);
@@ -346,7 +406,10 @@ if (els.loginForm) {
       }
     } catch (err) {
       console.error("login error:", err);
-      els.loginError.textContent = "Login failed.";
+      els.loginError.textContent =
+        err && err.status === 429
+          ? err.message || "Too many login attempts. Please wait and try again."
+          : (err && err.message) || "Login failed.";
       els.loginError.classList.remove("hidden");
     }
   });
@@ -412,7 +475,14 @@ if (els.chatForm) {
       }
     } catch (err) {
       console.error(err);
-      appendSystem("Network or auth error.");
+      if (err && err.status === 429) {
+        appendSystem(
+          err.message ||
+            "You hit the rate limit. Please wait a bit and try again."
+        );
+      } else {
+        appendSystem("Network or auth error.");
+      }
     } finally {
       els.sendBtn.disabled = false;
       els.chatText.focus();
@@ -465,6 +535,62 @@ if (els.adminCreateUserForm) {
       console.error("admin create user error:", err);
       els.adminError.textContent = "Failed to create user.";
       els.adminError.classList.remove("hidden");
+    }
+  });
+}
+
+// Change password (current user, admin UI for now)
+if (els.changePasswordForm) {
+  els.changePasswordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser) {
+      showLoginOverlay();
+      return;
+    }
+
+    const currentPw = els.changeCurrentPassword.value || "";
+    const newPw = els.changeNewPassword.value || "";
+    const confirmPw = els.changeConfirmPassword.value || "";
+
+    els.changePasswordMessage.classList.remove("error");
+    els.changePasswordMessage.classList.add("hidden");
+    els.changePasswordMessage.textContent = "";
+
+    if (!currentPw || !newPw || !confirmPw) {
+      els.changePasswordMessage.textContent =
+        "Please fill in all password fields.";
+      els.changePasswordMessage.classList.add("error");
+      els.changePasswordMessage.classList.remove("hidden");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      els.changePasswordMessage.textContent =
+        "New password and confirmation do not match.";
+      els.changePasswordMessage.classList.add("error");
+      els.changePasswordMessage.classList.remove("hidden");
+      return;
+    }
+
+    try {
+      await api("/api/auth/password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: currentPw,
+          newPassword: newPw
+        })
+      });
+      els.changePasswordMessage.textContent = "Password updated.";
+      els.changePasswordMessage.classList.remove("error");
+      els.changePasswordMessage.classList.remove("hidden");
+      els.changeCurrentPassword.value = "";
+      els.changeNewPassword.value = "";
+      els.changeConfirmPassword.value = "";
+    } catch (err) {
+      console.error("change password error:", err);
+      els.changePasswordMessage.textContent =
+        (err && err.message) || "Failed to change password.";
+      els.changePasswordMessage.classList.add("error");
+      els.changePasswordMessage.classList.remove("hidden");
     }
   });
 }
