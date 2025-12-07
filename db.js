@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbPath = path.join(__dirname, "data", "chatwrapper.db");
 
-// Ensure the data directory exists before opening SQLite
+// Ensure the data directory exists beore opening SQLite
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);
@@ -15,8 +15,11 @@ const db = new Database(dbPath);
 // Init schema
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  display_name TEXT
+  id TEXT PRIMARY KEY,         -- internal user id (e.g. "wife", "keith")
+  display_name TEXT,
+  username TEXT UNIQUE,        -- login username
+  password_hash TEXT,          -- bcrypt hash
+  is_admin INTEGER DEFAULT 0   -- 0 = normal, 1 = admin
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -35,6 +38,13 @@ CREATE TABLE IF NOT EXISTS usage_log (
   output_tokens INTEGER NOT NULL,
   total_tokens INTEGER NOT NULL,
   cost_usd REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,           -- opaque session token
+  user_id TEXT NOT NULL,         -- references users.id
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL
 );
 `);
 
@@ -93,4 +103,73 @@ export function getUsageSummary(userId) {
     LIMIT 30
   `);
   return stmt.all(userId);
+}
+
+//
+// ---- Authentication Helpers ----
+//
+
+// Create a new user with username/password_hash/is_admin
+export function createUser(id, displayName, username, passwordHash, isAdmin = 0) {
+  const stmt = db.prepare(`
+    INSERT INTO users (id, display_name, username, password_hash, is_admin)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  stmt.run(id, displayName, username, passwordHash, isAdmin);
+}
+
+// Retrieve user by username (for login)
+export function getUserByUsername(username) {
+  const stmt = db.prepare(`
+    SELECT id, display_name, username, password_hash, is_admin
+    FROM users
+    WHERE username = ?
+  `);
+  return stmt.get(username);
+}
+
+// Retrieve user by internal id
+export function getUserById(id) {
+  const stmt = db.prepare(`
+    SELECT id, display_name, username, password_hash, is_admin
+    FROM users
+    WHERE id = ?
+  `);
+  return stmt.get(id);
+}
+
+// Create a new session token for a user
+export function createSession(sessionId, userId, expiresAt) {
+  const stmt = db.prepare(`
+    INSERT INTO sessions (id, user_id, expires_at)
+    VALUES (?, ?, ?)
+  `);
+  stmt.run(sessionId, userId, expiresAt);
+}
+
+// Delete a session (logout)
+export function deleteSession(sessionId) {
+  const stmt = db.prepare(`DELETE FROM sessions WHERE id = ?`);
+  stmt.run(sessionId);
+}
+
+// Lookup a session + return user object if valid
+export function getUserBySessionId(sessionId) {
+  const stmt = db.prepare(`
+    SELECT u.id, u.display_name, u.username, u.is_admin
+    FROM sessions s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP
+  `);
+  return stmt.get(sessionId);
+}
+
+// List all users (admin only)
+export function listUsers() {
+  const stmt = db.prepare(`
+    SELECT id, display_name, username, is_admin
+    FROM users
+    ORDER BY username ASC
+  `);
+  return stmt.all();
 }

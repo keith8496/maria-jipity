@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
   --bg: #020617;
   --bg-alt: #0b1120;
   --bg-elevated: #020617;
@@ -12,6 +12,18 @@
   --radius-lg: 1rem;
   --radius-md: 0.75rem;
   --radius-sm: 0.5rem;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f9fafb;
+    --bg-alt: #ffffff;
+    --bg-elevated: #ffffff;
+    --border-subtle: #e5e7eb;
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --accent-soft: rgba(34, 197, 94, 0.12);
+  }
 }
 
 *,
@@ -27,7 +39,7 @@ body {
   height: 100%;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     sans-serif;
-  background: radial-gradient(circle at top, #020617 0, #020617 40%, #000 100%);
+  background: radial-gradient(circle at top, var(--bg) 0, var(--bg) 40%, #000 100%);
   color: var(--text-main);
 }
 
@@ -60,6 +72,31 @@ body {
   color: var(--text-muted);
 }
 
+.tabbar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+.tab {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tab.active {
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+  background: radial-gradient(circle at top, var(--bg-elevated), var(--bg-alt));
+}
+
 .icon-btn {
   border: 1px solid var(--border-subtle);
   background: transparent;
@@ -78,6 +115,7 @@ body {
 .layout {
   flex: 1;
   display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
@@ -125,6 +163,10 @@ body {
   color: var(--text-muted);
 }
 
+.hint.error {
+  color: var(--danger);
+}
+
 .usage-panel {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
@@ -140,8 +182,12 @@ body {
 .usage-content {
   font-size: 0.75rem;
   color: var(--text-muted);
-  max-height: 200px;
+  max-height: 360px;
   overflow-y: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  padding: 0.5rem;
+  background: var(--bg-elevated);
 }
 
 .usage-row {
@@ -150,14 +196,89 @@ body {
   margin-bottom: 0.15rem;
 }
 
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-form {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-form-row label {
+  flex: 1;
+  min-width: 140px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-form-row input[type="text"],
+.admin-form-row input[type="password"],
+.admin-form-row input:not([type]) {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  padding: 0.4rem 0.5rem;
+  background: var(--bg);
+  color: var(--text-main);
+  font-size: 0.85rem;
+}
+
+.admin-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+#admin-users {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  padding: 0.5rem;
+  background: var(--bg-elevated);
+}
+
+#admin-users .admin-user-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+#admin-users .admin-user-row:last-child {
+  border-bottom: none;
+}
+
 /* Chat panel */
 
-.chat-panel {
+.panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   padding: 0.5rem;
+}
+
+.panel-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0.5rem 0.5rem 1rem;
 }
 
 .chat-log {
@@ -255,6 +376,68 @@ body {
     display: flex;
   }
 }
+
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.login-modal {
+  position: relative;
+  z-index: 51;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  padding: 1.25rem 1.5rem 1.25rem;
+  background: radial-gradient(circle at top, var(--bg-elevated), var(--bg-alt));
+  width: min(360px, 90vw);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.login-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.login-form label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.login-form input {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  padding: 0.4rem 0.5rem;
+  background: var(--bg);
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.login-submit {
+  margin-top: 0.5rem;
+  width: 100%;
+  justify-content: center;
+}
+
 .hidden {
   display: none;
 }
